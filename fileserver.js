@@ -14,7 +14,7 @@ var fileserver = function(app, opts) {
     throw new Error('express app required');
   }
 
-  app.local.opts_restfs = opts || {}; //added opts -DJ
+  app.locals.opts_restfs = opts || {}; //save options -DJ
   app.set('etag', 'strong');
   app.use(require('express-domain-middleware'));
   app.use(bodyParser.json());
@@ -25,9 +25,9 @@ var fileserver = function(app, opts) {
     skip: function () { return process.env.LOG !== 'true'; }
   }));
 
-  var uri = app.local.opts_restfs.publicPath || "/";
-  uri = url.replace(/(?=\W)/g, '\\'); //make safe for use in regex; //https://stackoverflow.com/questions/3561493/is-there-a-regexp-escape-function-in-javascript
-//rebase uri so it won't interfere with static content (optional):
+//rebase uri so it won't interfere with static content (optional): -DJ
+  var uri = app.locals.opts_restfs.publicPath || "/";
+  uri = uri.replace(/(?=\W)/g, '\\'); //make safe for use in regex; //https://stackoverflow.com/questions/3561493/is-there-a-regexp-escape-function-in-javascript
 //  var getdir_re = new RegExp("^" + uri + "(.+\/)?$"); //  /^\/(.+\/)?$/;
 //  var deldir_re = new RegExp("^" + uri + ".+\/$"); //  /^\/.+\/$/;
   var dir_re = new RegExp("^" + uri + ".+\/$"); //  /^\/.+\/$/; //don't allow delete all
@@ -63,6 +63,7 @@ var fileserver = function(app, opts) {
       "fullFilePath"
     }, ...
   ]
+
 */
 var getDir = function (req, res, next) {
   if (req.query.stat) {
@@ -70,6 +71,7 @@ var getDir = function (req, res, next) {
   }
 
   var dirPath =  decodeURI(url.parse(req.url).pathname);
+  dirPath = (req.app.locals.opts_restfs.contentBase || "") + dirPath; //alternate mount point -DJ
 console.log("getdir dirPath", dirPath); //DJ
   var isRecursive = req.query.recursive || "false";
   var opts = req.body.opts;
@@ -122,6 +124,7 @@ var getFile = function (req, res, next) {
   }
 
   var filePath = decodeURI(url.parse(req.url).pathname);
+  filePath = (req.app.locals.opts_restfs.contentBase || "") + filePath; //alternate mount point -DJ
 console.log("getfile filePath", filePath); //DJ
   var encoding = req.query.encoding || 'utf8';
   var opts = req.body.opts;
@@ -166,6 +169,7 @@ console.log("getfile filePath", filePath); //DJ
 */
 var postFileOrDir = function (req, res, next) {
   var dirPath =  decodeURI(url.parse(req.url).pathname);
+  dirPath = (req.app.locals.opts_restfs.contentBase || "") + dirPath; //alternate mount point -DJ
 console.log("post file/dir dirPath", dirPath); //DJ
   var isDir = dirPath.substr(-1) === '/';
   var options = {};
@@ -240,6 +244,7 @@ console.log("post file/dir dirPath", dirPath); //DJ
 */
 var putFileOrDir = function (req, res, next) {
   var dirPath =  decodeURI(url.parse(req.url).pathname);
+  dirPath = (req.app.locals.opts_restfs.contentBase || "") + dirPath; //alternate mount point -DJ
 console.log("put file/dir dirPath", dirPath); //DJ
   var isDir = dirPath.substr(-1) === '/';
   var options = {};
@@ -276,6 +281,7 @@ console.log("put file/dir dirPath", dirPath); //DJ
 */
 var delDir = function (req, res, next) {
   var dirPath =  decodeURI(url.parse(req.url).pathname);
+  dirPath = (req.app.locals.opts_restfs.contentBase || "") + dirPath; //alternate mount point -DJ
 console.log("deldir dirPath", dirPath); //DJ
   var clobber = req.body.clobber  || false;
   var opts = req.body.opts;
@@ -296,6 +302,7 @@ console.log("deldir dirPath", dirPath); //DJ
 */
 var delFile = function (req, res, next) {
   var dirPath =  decodeURI(url.parse(req.url).pathname);
+  dirPath = (req.app.locals.opts_restfs.contentBase || "") + dirPath; //alternate mount point -DJ
 console.log("delfile dirPath", dirPath); //DJ
   var opts = req.body.opts;
 

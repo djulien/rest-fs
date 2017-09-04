@@ -9,11 +9,12 @@ var flow = require('middleware-flow');
 var morgan = require('morgan');
 var error = require('debug')('rest-fs:fileserver');
 
-var fileserver = function(app) {
+var fileserver = function(app, opts) {
   if (!app) {
     throw new Error('express app required');
   }
 
+  app.local.opts_restfs = opts || {}; //added opts -DJ
   app.set('etag', 'strong');
   app.use(require('express-domain-middleware'));
   app.use(bodyParser.json());
@@ -23,12 +24,21 @@ var fileserver = function(app) {
   app.use(morgan('combined', {
     skip: function () { return process.env.LOG !== 'true'; }
   }));
-  app.get(/^\/(.+\/)?$/, getDir);
-  app.get(/^\/.+[^\/]$/, getFile);
-  app.post("/*", postFileOrDir);
-  app.put("/*", putFileOrDir);
-  app.delete(/^\/.+\/$/, delDir);
-  app.delete(/^\/.+[^\/]$/, delFile);
+
+  var uri = app.local.opts_restfs.publicPath || "/";
+  uri = url.replace(/(?=\W)/g, '\\'); //make safe for use in regex; //https://stackoverflow.com/questions/3561493/is-there-a-regexp-escape-function-in-javascript
+//rebase uri so it won't interfere with static content (optional):
+//  var getdir_re = new RegExp("^" + uri + "(.+\/)?$"); //  /^\/(.+\/)?$/;
+//  var deldir_re = new RegExp("^" + uri + ".+\/$"); //  /^\/.+\/$/;
+  var dir_re = new RegExp("^" + uri + ".+\/$"); //  /^\/.+\/$/; //don't allow delete all
+  var file_re = new RegExp("^" + uri + ".+[^\/]$"); //  /^\/.+[^\/]$/;
+
+  app.get(dir_re, getDir);
+  app.get(file_re, getFile);
+  app.post(uri + "*", postFileOrDir);
+  app.put(uri + "*", putFileOrDir);
+  app.delete(dir_re, delDir);
+  app.delete(file_re, delFile);
   app.use(function (err, req, res, next)  {
     error('uncaught error', err.stack);
     var outErr = {
@@ -60,6 +70,7 @@ var getDir = function (req, res, next) {
   }
 
   var dirPath =  decodeURI(url.parse(req.url).pathname);
+console.log("getdir dirPath", dirPath); //DJ
   var isRecursive = req.query.recursive || "false";
   var opts = req.body.opts;
 
@@ -111,6 +122,7 @@ var getFile = function (req, res, next) {
   }
 
   var filePath = decodeURI(url.parse(req.url).pathname);
+console.log("getfile filePath", filePath); //DJ
   var encoding = req.query.encoding || 'utf8';
   var opts = req.body.opts;
 
@@ -154,6 +166,7 @@ var getFile = function (req, res, next) {
 */
 var postFileOrDir = function (req, res, next) {
   var dirPath =  decodeURI(url.parse(req.url).pathname);
+console.log("post file/dir dirPath", dirPath); //DJ
   var isDir = dirPath.substr(-1) === '/';
   var options = {};
   var isJson = false;
@@ -227,6 +240,7 @@ var postFileOrDir = function (req, res, next) {
 */
 var putFileOrDir = function (req, res, next) {
   var dirPath =  decodeURI(url.parse(req.url).pathname);
+console.log("put file/dir dirPath", dirPath); //DJ
   var isDir = dirPath.substr(-1) === '/';
   var options = {};
   var opts = req.body.opts;
@@ -262,6 +276,7 @@ var putFileOrDir = function (req, res, next) {
 */
 var delDir = function (req, res, next) {
   var dirPath =  decodeURI(url.parse(req.url).pathname);
+console.log("deldir dirPath", dirPath); //DJ
   var clobber = req.body.clobber  || false;
   var opts = req.body.opts;
 
@@ -281,6 +296,7 @@ var delDir = function (req, res, next) {
 */
 var delFile = function (req, res, next) {
   var dirPath =  decodeURI(url.parse(req.url).pathname);
+console.log("delfile dirPath", dirPath); //DJ
   var opts = req.body.opts;
 
   fileDriver.unlink({
@@ -313,6 +329,7 @@ var delFile = function (req, res, next) {
 */
 var statFile = function (req, res, next) {
   var filePath = decodeURI(url.parse(req.url).pathname);
+console.log("statfile filePath", filePath); //DJ
   var opts = req.body.opts;
 
   fileDriver.stat({
